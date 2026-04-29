@@ -298,11 +298,17 @@ window.vibeSearch = async function() {
       }
     }
 
-    // AI 生成的菜谱
+    // AI 生成的菜谱（或数据库中命中的菜谱）
     if (data.ai_recipe) {
       const r = data.ai_recipe;
+      const fromDb = data.is_from_db === true;
+
       html += '<div class="ai-recipe-result">';
-      html += '<h3>✨ AI 为你推荐：' + escapeHtml(r.title) + '</h3>';
+      // 来自数据库的菜谱加一个标志
+      if (fromDb) {
+        html += '<div class="db-match-badge"><i class="fa-solid fa-check-circle"></i> 已存在于菜谱库</div>';
+      }
+      html += '<h3>' + (fromDb ? '📚 ' : '✨ ') + '推荐：' + escapeHtml(r.title) + '</h3>';
       html += '<p>' + escapeHtml(r.description || '') + '</p>';
       html += '<div class="detail-meta">';
       if (r.cuisine_name) html += '<span>🍲 ' + r.cuisine_name + '</span>';
@@ -326,12 +332,18 @@ window.vibeSearch = async function() {
         });
         html += '</ul></div>';
       }
-      // 添加到菜谱库按钮（底部）
+      // 底部按钮：已存在则禁用并显示提示，否则可添加
       html += '<div style="margin-top:16px;text-align:right;">';
-      html += '<button class="btn-primary" onclick="fillAiRecipeToAdd()">';
-      html += '<i class="fa-solid fa-plus-circle"></i> 添加到菜谱库';
-      html += '</button></div>';
-      html += '</div>';
+      if (fromDb) {
+        html += '<button class="btn-primary" disabled style="opacity:0.6;cursor:not-allowed;background:var(--text-secondary);">';
+        html += '<i class="fa-solid fa-check-circle"></i> 已存在于菜谱库';
+        html += '</button>';
+      } else {
+        html += '<button class="btn-primary" onclick="fillAiRecipeToAdd()">';
+        html += '<i class="fa-solid fa-plus-circle"></i> 添加到菜谱库';
+        html += '</button>';
+      }
+      html += '</div></div>';
     }
 
     // DB 匹配结果
@@ -748,7 +760,18 @@ async function loadTrendChart() {
       chartInstances['trendChart'].destroy();
     }
 
-    const labels = trend.map(t => t.day_date);
+    // 根据时间跨度决定 X 轴标签格式和密度
+    const days = _statsTrendDays;
+    const maxTicks = days <= 7 ? days : (days <= 30 ? 10 : (days <= 90 ? 14 : 12));
+    const labels = trend.map(t => {
+      const d = new Date(t.day_date);
+      if (days >= 365) {
+        // 长跨度（年）：只显示月份
+        return (d.getMonth() + 1) + '月';
+      }
+      // 短跨度：显示 M/D
+      return (d.getMonth() + 1) + '/' + d.getDate();
+    });
 
     chartInstances['trendChart'] = new Chart(canvas, {
       type: 'line',
@@ -795,7 +818,9 @@ async function loadTrendChart() {
         scales: {
           x: {
             ticks: {
-              maxRotation: 45,
+              autoSkip: true,
+              maxTicksLimit: maxTicks,
+              maxRotation: 0,
               font: { size: 10 }
             }
           },
@@ -1146,6 +1171,12 @@ window.fillAiRecipeToAdd = function() {
   // 直接从原始 JSON 快照提取（零 DOM 依赖，100% 准确）
   if (!lastAiRecipe || !lastAiRecipe.title) {
     alert('没有可添加的 AI 菜谱数据');
+    return;
+  }
+
+  // 如果 lastAiRecipe 来源于 DB（有 id 字段），不应允许手动添加
+  if (lastAiRecipe.id) {
+    alert('该菜谱已存在于菜谱库中，无需重复添加');
     return;
   }
 

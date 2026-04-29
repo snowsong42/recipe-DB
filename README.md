@@ -11,7 +11,11 @@
 
 ### 1. 启动 MySQL 数据库
 
-确保 MySQL 8.0 服务已启动（Windows 服务名 `MySQL80`）。
+确保services.msc当中 MySQL 8.0 服务已启动（Windows 服务名 `MySQL80`）。或者在管理员模式cmd运行：
+
+```
+net start MySQL80
+```
 
 ```powershell
 # 用 MySQL Shell 初始化数据库（仅首次需要）
@@ -64,6 +68,7 @@ npm run dev
 
 ```powershell
 cd D:/project/IndependentProjects/recipe-DB
+.venv\Scripts\activate
 python backend/app.py
 ```
 
@@ -140,43 +145,6 @@ http://你的IP:5173
 ---
 
 ## 🐛 常见问题
-
-### ❓ Vite 报 "Blocked request" 错误
-
-如果通过 ngrok 或自定义域名访问时出现：
-```
-Blocked request. This host ("xxx.ngrok-free.dev") is not allowed.
-```
-
-**解决**：在 `frontend/vite.config.js` 中添加 `allowedHosts: true`：
-
-```js
-export default defineConfig({
-  server: {
-    host: '0.0.0.0',
-    allowedHosts: true,  // ← 添加这行
-    proxy: { ... }
-  }
-});
-```
-
-添加后重启 Vite 开发服务器即可。
-
-### ❓ ngrok 提示 "ERR_NGROK_121" — 版本过旧
-
-```
-ERROR: Your ngrok-agent version "3.3.1" is too old.
-```
-
-**解决**：升级 ngrok 到最新版：
-```powershell
-# 下载最新版
-Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile "$env:TEMP\ngrok.zip"
-
-# 解压并替换
-Expand-Archive -Path "$env:TEMP\ngrok.zip" -DestinationPath "$env:TEMP\ngrok_new" -Force
-Copy-Item "$env:TEMP\ngrok_new\ngrok.exe" "C:\Users\snowsong\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" -Force
-```
 
 ### ❓ 端口被占用
 

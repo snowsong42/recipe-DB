@@ -861,10 +861,75 @@ def vibe_search():
 
         # 2. AI 解析搜索条件
         search_result = ai_search_recipes(prompt)
-
-        # 3. 如果 AI 生成了菜谱，尝试用搜索条件从数据库查找
-        db_results = []
         conditions = search_result.get('conditions', {}) if search_result.get('status') == 'success' else {}
+
+        # 3. 从数据库匹配 AI 菜谱（按标题精确/模糊匹配）
+        ai_recipe = None
+        is_from_db = False
+        matched_recipe_id = None
+
+        if recipe_result.get('status') == 'success' and recipe_result.get('recipe', {}).get('title'):
+            ai_title = recipe_result['recipe']['title'].strip()
+            conn = get_db_connection()
+            cursor = conn.cursor()
+
+            # 尝试精确匹配标题，再尝试模糊匹配
+            cursor.execute(
+                'SELECT id FROM recipes WHERE title = %s UNION SELECT id FROM recipes WHERE title LIKE %s LIMIT 1',
+                (ai_title, f'%{ai_title}%')
+            )
+            match = cursor.fetchone()
+
+            if match:
+                # 命中数据库 —— 获取完整菜谱详情（含食材、步骤）
+                matched_recipe_id = match['id']
+                cursor.execute("""
+                    SELECT r.id, r.title, r.description, r.cooking_time,
+                           r.created_at, r.updated_at, r.created_by,
+                           c.id AS cuisine_id, c.name AS cuisine_name,
+                           s.id AS season_id, s.name AS season_name,
+                           ta.id AS taste_id, ta.name AS taste_name,
+                           d.id AS difficulty_id, d.level AS difficulty_name
+                    FROM recipes r
+                    LEFT JOIN cuisine c ON r.cuisine_id = c.id
+                    LEFT JOIN season s ON r.season_id = s.id
+                    LEFT JOIN taste ta ON r.taste_id = ta.id
+                    LEFT JOIN difficulty d ON r.difficulty_id = d.id
+                    WHERE r.id = %s
+                """, (matched_recipe_id,))
+                db_recipe = cursor.fetchone()
+                if db_recipe:
+                    cursor.execute("""
+                        SELECT i.id, i.name, ri.quantity, ri.unit, ri.notes
+                        FROM recipe_ingredients ri
+                        JOIN ingredients i ON ri.ingredient_id = i.id
+                        WHERE ri.recipe_id = %s ORDER BY i.name
+                    """, (matched_recipe_id,))
+                    ingredients = cursor.fetchall()
+
+                    cursor.execute("""
+                        SELECT id, step_number, instruction, duration
+                        FROM steps WHERE recipe_id = %s ORDER BY step_number
+                    """, (matched_recipe_id,))
+                    steps = cursor.fetchall()
+
+                    db_recipe['ingredients'] = ingredients
+                    db_recipe['steps'] = steps
+                    ai_recipe = db_recipe
+                    is_from_db = True
+
+            if not is_from_db:
+                # 未命中数据库，使用 AI 生成的菜谱
+                ai_recipe = recipe_result['recipe']
+                is_from_db = False
+
+            conn.close()
+        else:
+            # AI 生成失败但有可能是错误提示，取不到 title 则直接使用 AI 结果
+            ai_recipe = recipe_result.get('recipe') if recipe_result.get('status') == 'success' else None
+
+        # 4. 按 AI 解析的条件从数据库进行泛搜索（作为补充推荐）
+        db_results = []
         if conditions.get('cuisine_name') or conditions.get('keyword'):
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -885,6 +950,10 @@ def vibe_search():
             if keyword:
                 sql += ' AND (r.title LIKE %s OR r.description LIKE %s)'
                 params.extend([f'%{keyword}%', f'%{keyword}%'])
+            # 如果 AI 菜谱已命中数据库，排除该 ID 避免重复
+            if matched_recipe_id:
+                sql += ' AND r.id != %s'
+                params.append(matched_recipe_id)
             sql += ' LIMIT 5'
             cursor.execute(sql, params)
             db_results = cursor.fetchall()
@@ -892,7 +961,8 @@ def vibe_search():
 
         return jsonify({
             "status": "success",
-            "ai_recipe": recipe_result.get('recipe') if recipe_result.get('status') == 'success' else None,
+            "ai_recipe": ai_recipe,
+            "is_from_db": is_from_db,
             "db_results": db_results,
             "conditions": conditions
         })
