@@ -17,7 +17,7 @@
 ### 1.2 所需软件
 
 - **Git** — 代码版本管理
-- **Python 3 + venv** — 后端运行环境
+- **Python 3 + uv** — 后端运行环境
 - **Node.js 20 LTS** — 前端构建环境
 - **MySQL 8.0** — 数据库
 - **Nginx** — 反向代理与静态文件服务
@@ -105,14 +105,21 @@ node --version   # 应输出 v20.x.x
 npm --version    # 应输出 10.x.x
 ```
 
-### 2.7 配置 Python 虚拟环境
+### 2.7 安装 uv 并同步依赖
 
 ```bash
+# 安装 uv（包管理器，替代 pip）
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 重新登录以使 uv 命令生效，或直接 source 环境变量
+source ~/.bashrc
+
+# 进入项目目录，自动创建虚拟环境并安装所有依赖
 cd ~/recipe-DB
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
+uv sync
 ```
+
+`uv sync` 会自动读取 `pyproject.toml` 中的依赖列表，并按 `uv.lock` 锁定版本精确安装，效果等价于 `pip install` 全部依赖，但版本可控、速度更快。
 
 ---
 
@@ -152,11 +159,14 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 
 ### 3.3 安装 Python 依赖
 
+项目使用 `uv` 管理依赖，所有依赖已声明在 `pyproject.toml` 中。只需执行：
+
 ```bash
 cd ~/recipe-DB
-source .venv/bin/activate
-pip install flask pymysql python-dotenv requests flask-cors openai cryptography
+uv sync
 ```
+
+`uv sync` 会自动创建 `.venv`（如果不存在），从 `pyproject.toml` 读取依赖，并按 `uv.lock` 精确锁定版本安装。
 
 各依赖作用：
 
@@ -488,9 +498,7 @@ cd ~/recipe-DB
 git pull origin main
 
 # 3. 更新 Python 依赖（如果有新增）
-source .venv/bin/activate
-pip install -r requirements.txt   # 如果项目有 requirements.txt
-# 或者手动安装新增的包
+uv sync   # 自动读取 pyproject.toml，按 uv.lock 锁定版本安装
 
 # 4. 重新构建前端（如果前端代码有修改）
 cd ~/recipe-DB/frontend
@@ -524,9 +532,8 @@ npx vite build
 ```bash
 cd ~/recipe-DB
 git pull origin main
-source .venv/bin/activate
-pip install -r requirements.txt    # 如果有新依赖
-sudo systemctl restart recipe-db   # 重启 Flask
+uv sync                             # 自动读取 pyproject.toml 同步依赖
+sudo systemctl restart recipe-db    # 重启 Flask
 ```
 
 ### 8.4 数据库备份与恢复
@@ -620,8 +627,8 @@ git pull origin main
 | 浏览器访问返回 **502** | Nginx 无法连接 Flask | `curl http://127.0.0.1:5000/api/stats` 测试后端是否存活；检查 recipe-db 服务状态 |
 | 浏览器访问返回 **403/404** | Nginx 静态文件路径错误或权限不足 | 检查 Nginx 配置中的 `root` 路径；`ls -la ~/recipe-DB/frontend/dist/` 确认目录存在 |
 | 前端页面空白（控制台报错） | Vite 构建失败或 dist 目录不完整 | 重新执行 `npx vite build`；检查构建输出是否有错误 |
-| Vibe 搜索报错 "openai 库未安装" | Python 依赖缺失 | `source .venv/bin/activate && pip install openai` |
-| Vibe 搜索报错 "cryptography 包缺失" | MySQL 认证库缺失 | `source .venv/bin/activate && pip install cryptography` |
+| Vibe 搜索报错 "openai 库未安装" | Python 依赖缺失 | `uv add openai` |
+| Vibe 搜索报错 "cryptography 包缺失" | MySQL 认证库缺失 | `uv add cryptography` |
 | Vibe 搜索报错 "API Key 无效" | DeepSeek API Key 未配置或无效 | 检查 `~/.env` 文件中 `DEEPSEEK_API_KEY` 是否正确 |
 | 数据库连接失败 | MySQL 未运行或凭据错误 | `sudo systemctl status mysql`；检查 `.env` 中的数据库配置 |
 | ngrok 无法连接 | 服务器无法访问海外网络 | 检查网络连通性 `ping 8.8.8.8`；考虑替换为 Cloudflare Tunnel |

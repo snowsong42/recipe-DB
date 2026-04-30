@@ -136,9 +136,17 @@ python -m venv .venv
 
 ### 3.3 安装依赖
 
+项目使用 `uv` 管理依赖，所有依赖已声明在 `pyproject.toml` 中。安装 uv 后执行同步：
+
 ```powershell
-pip install flask pymysql python-dotenv requests flask-cors openai cryptography
+# 安装 uv（包管理器）
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 在项目目录中同步依赖（自动创建 .venv，按 uv.lock 锁定版本安装）
+cd D:\project\IndependentProjects\recipe-DB
+uv sync
 ```
+如果当前环境尚未安装 uv，首次运行后需重新打开终端使 PATH 生效。`uv sync` 会自动创建虚拟环境并安装 `pyproject.toml` 中声明的全部依赖。
 
 各依赖作用：
 
@@ -386,8 +394,7 @@ git push origin main
 ```bash
 cd ~/recipe-DB
 git pull origin main
-source .venv/bin/activate
-pip install -r requirements.txt   # 如有新依赖
+uv sync                             # 自动读取 pyproject.toml 同步依赖
 cd frontend && npm install && npx vite build
 sudo systemctl restart recipe-db
 ```
@@ -402,8 +409,8 @@ sudo systemctl restart recipe-db
 |------|------|----------|
 | `Address already in use` | 端口 5000 被占用 | `netstat -ano \| findstr :5000` 找到 PID，`taskkill /PID <PID> /F` |
 | `pymysql.err.OperationalError` | MySQL 未启动或凭据错误 | 检查 MySQL 服务状态；检查 `.env` 中的数据库配置 |
-| `ModuleNotFoundError: No module named 'openai'` | 缺少 openai 库 | `.venv\Scripts\activate && pip install openai` |
-| `ModuleNotFoundError: No module named 'cryptography'` | 缺少 cryptography 库 | `.venv\Scripts\activate && pip install cryptography` |
+| `ModuleNotFoundError: No module named 'openai'` | 缺少 openai 库 | `uv add openai` |
+| `ModuleNotFoundError: No module named 'cryptography'` | 缺少 cryptography 库 | `uv add cryptography` |
 | `ImportError: openai 库未安装` | 同上 | 同上 |
 | `.env` 文件不生效 | `.env` 文件位置或格式错误 | 确认 `.env` 在项目根目录；检查 `=` 两边没有空格 |
 | `ValueError: 请在 .env 文件中配置有效的 DEEPSEEK_API_KEY` | API Key 未配置或为默认值 | 检查 `.env` 中 `DEEPSEEK_API_KEY` 是否正确 |
