@@ -7,4 +7,8 @@ requires-python = ">=3.14"
 dependencies = [
     "cryptography>=47.0.0",
     "openai>=2.32.0",
+    "flask>=3.0",
+    "flask-cors>=4.0",
+    "pymysql>=1.1",
+    "python-dotenv>=1.0",
 ]
