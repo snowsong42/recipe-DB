@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能菜谱助手 · AI Recipe</title>
+  <link rel="stylesheet" href="/src/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet" />
+  <!-- Font Awesome 图标库 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+
+  <!-- ========== 导航栏 ========== -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <a href="#vibe" class="nav-brand" onclick="router.navigate('vibe')">
+        🍳 <span>AI 菜谱</span>
+      </a>
+      <div class="nav-tabs" id="nav-tabs">
+        <a href="#vibe" class="tab" data-page="vibe" onclick="router.navigate('vibe')">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Vibe
+        </a>
+        <a href="#search" class="tab" data-page="search" onclick="router.navigate('search')">
+          <i class="fa-solid fa-magnifying-glass"></i> 搜索
+        </a>
+        <a href="#stats" class="tab" data-page="stats" onclick="router.navigate('stats')">
+          <i class="fa-solid fa-chart-pie"></i> 统计
+        </a>
+        <a href="#add" class="tab" data-page="add" onclick="router.navigate('add')">
+          <i class="fa-solid fa-plus-circle"></i> 添加
+        </a>
+        <a href="#admin" class="tab" data-page="admin" id="nav-tab-admin" onclick="router.navigate('admin')" style="display:none">
+          <i class="fa-solid fa-screwdriver-wrench"></i> 管理
+        </a>
+      </div>
+      <div class="nav-user" id="nav-user-area">
+        <a href="#profile" onclick="router.navigate('profile')" id="login-link">
+          <i class="fa-regular fa-circle-user"></i>
+        </a>
+        <span id="user-info" style="display:none">
+          <span class="user-avatar" id="username-display" onclick="router.navigate('profile')" title="个人中心"></span>
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container" id="app-container">
+
+    <!-- ========== 页面: Vibe ========== -->
+    <div id="page-vibe" class="page active">
+      <div class="vibe-hero">
+        <div class="vibe-glow"></div>
+        <h1>不知道吃什么？</h1>
+        <p class="vibe-subtitle">输入你今天的 <strong>vibe</strong>，让 AI 帮你 cooking！</p>
+        <div class="vibe-input-wrap">
+          <textarea id="vibe-input"
+            placeholder="例如：今天心情好，想吃点辣的，最好是川菜，简单一点的..."
+            rows="2"></textarea>
+          <button class="vibe-btn" onclick="vibeSearch()">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> 告诉 AI 我的想法
+          </button>
+        </div>
+        <!-- AI 思考过程动画 -->
+        <div id="vibe-loading" class="vibe-thinking" style="display:none;">
+          <div class="thinking-card">
+            <div class="thinking-step" data-step="0">🤔 AI 正在理解你的描述...</div>
+            <div class="thinking-step" data-step="1">🔍 正在分析菜系偏好...</div>
+            <div class="thinking-step" data-step="2">🌤 正在判断适合的季节...</div>
+            <div class="thinking-step" data-step="3">🌶 正在匹配口味...</div>
+            <div class="thinking-step" data-step="4">📊 正在评估难度...</div>
+            <div class="thinking-step" data-step="5">✨ 正在生成推荐...</div>
+          </div>
+        </div>
+        <div id="vibe-result" class="vibe-result"></div>
+      </div>
+    </div>
+
+    <!-- ========== 页面: 搜索 ========== -->
+    <div id="page-search" class="page">
+      <div class="section-header">
+        <h1><i class="fa-solid fa-magnifying-glass"></i> 精确查找</h1>
+        <p class="hint">按条件筛选，找到属于你的美味</p>
+      </div>
+      <div class="filter-bar">
+        <div class="filter-group">
+          <i class="fa-solid fa-utensils"></i>
+          <select id="filter-cuisine"><option value="">全部菜系</option></select>
+        </div>
+        <div class="filter-group">
+          <i class="fa-solid fa-leaf"></i>
+          <select id="filter-season"><option value="">全部季节</option></select>
+        </div>
+        <div class="filter-group">
+          <i class="fa-solid fa-pepper-hot"></i>
+          <select id="filter-taste"><option value="">全部口味</option></select>
+        </div>
+        <div class="filter-group">
+          <i class="fa-solid fa-signal"></i>
+          <select id="filter-difficulty"><option value="">全部难度</option></select>
+        </div>
+        <div class="filter-group" style="flex:2">
+          <i class="fa-solid fa-keyboard"></i>
+          <input type="text" id="filter-keyword" placeholder="搜索关键词..." />
+        </div>
+        <button onclick="searchRecipes()" class="btn-primary">
+          <i class="fa-solid fa-search"></i> 查询
+        </button>
+      </div>
+      <div id="search-results" class="recipe-grid"></div>
+    </div>
+
+    <!-- ========== 页面: 统计 ========== -->
+    <div id="page-stats" class="page">
+      <div class="section-header">
+        <h1><i class="fa-solid fa-chart-pie"></i> 系统信息</h1>
+        <p class="hint">点击数字查看详细增长曲线与分布</p>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card clickable" data-delay="0" onclick="switchStatsView('recipes');return false" title="点击查看菜系与难度分布">
+          <div class="stat-icon"><i class="fa-solid fa-book-open"></i></div>
+          <div class="stat-number" id="stat-total-recipes">0</div>
+          <div class="stat-label">总菜谱</div>
+        </div>
+        <div class="stat-card clickable" data-delay="100" onclick="switchStatsView('today');return false" title="点击查看菜谱增长曲线">
+          <div class="stat-icon"><i class="fa-solid fa-calendar-day"></i></div>
+          <div class="stat-number" id="stat-today-recipes">0</div>
+          <div class="stat-label">今日新增</div>
+        </div>
+        <div class="stat-card clickable" data-delay="200" onclick="switchStatsView('ingredients');return false" title="点击查看最近新增食材">
+          <div class="stat-icon"><i class="fa-solid fa-carrot"></i></div>
+          <div class="stat-number" id="stat-total-ingredients">0</div>
+          <div class="stat-label">食材</div>
+        </div>
+        <div class="stat-card clickable" data-delay="300" onclick="switchStatsView('users');return false" title="点击查看用户增长曲线">
+          <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
+          <div class="stat-number" id="stat-total-users">0</div>
+          <div class="stat-label">用户</div>
+        </div>
+        <div class="stat-card clickable" data-delay="400" onclick="switchStatsView('views');return false" title="点击查看浏览量增长曲线">
+          <div class="stat-icon"><i class="fa-solid fa-eye"></i></div>
+          <div class="stat-number" id="stat-total-page-views">0</div>
+          <div class="stat-label">总浏览</div>
+        </div>
+      </div>
+
+      <!-- 默认双图：菜系 + 难度 -->
+      <div id="stats-charts-default" class="charts-row">
+        <div class="chart-card">
+          <h3><i class="fa-solid fa-chart-pie"></i> 菜系分布</h3>
+          <canvas id="cuisineChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3><i class="fa-solid fa-chart-bar"></i> 难度分布</h3>
+          <canvas id="difficultyChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 增长曲线独占区域（点击后显示，默认隐藏） -->
+      <div id="stats-chart-trend" class="chart-card full-width" style="display:none;">
+        <div class="section-header-row">
+          <h3 id="trend-chart-title"><i class="fa-solid fa-chart-line"></i> 增长曲线</h3>
+          <div class="trend-controls">
+            <span class="trend-label">天数：</span>
+            <button class="btn-trend" data-days="7" onclick="changeTrendDays(7)">7</button>
+            <button class="btn-trend active" data-days="30" onclick="changeTrendDays(30)">30</button>
+            <button class="btn-trend" data-days="90" onclick="changeTrendDays(90)">90</button>
+            <button class="btn-trend" data-days="365" onclick="changeTrendDays(365)">365</button>
+          </div>
+        </div>
+        <canvas id="trendChart" style="max-height:320px;"></canvas>
+      </div>
+
+      <!-- 食材标签区域（食材卡片点击后显示） -->
+      <div id="stats-chart-ingredients" class="chart-card full-width" style="display:none;">
+        <h3><i class="fa-solid fa-tags"></i> 最近新增食材</h3>
+        <div id="stats-ingredient-tags" class="ingredient-tag-cloud"></div>
+      </div>
+    </div>
+
+    <!-- ========== 页面: 详情 ========== -->
+    <div id="page-detail" class="page">
+      <button class="back-btn" onclick="router.back()">
+        <i class="fa-solid fa-arrow-left"></i> 返回
+      </button>
+      <div id="recipe-detail" class="detail-container"></div>
+    </div>
+
+    <!-- ========== 页面: 用户 ========== -->
+    <div id="page-profile" class="page">
+      <div class="section-header">
+        <h1><i class="fa-regular fa-circle-user"></i> 个人中心</h1>
+      </div>
+      <div id="profile-content" class="profile-content">
+        <!-- 未登录 -->
+        <div id="profile-login-section" class="profile-card">
+          <div class="profile-tabs-mini">
+            <span class="mini-tab active" onclick="switchProfileTab('login-form-tab', this)">登录</span>
+            <span class="mini-tab" onclick="switchProfileTab('register-form-tab', this)">注册</span>
+          </div>
+          <div id="login-form-tab" class="profile-form active">
+            <form id="login-form">
+              <div class="form-group">
+                <label><i class="fa-regular fa-user"></i> 用户名</label>
+                <input type="text" name="username" required placeholder="输入用户名" />
+              </div>
+              <div class="form-group">
+                <label><i class="fa-solid fa-lock"></i> 密码</label>
+                <input type="password" name="password" required placeholder="输入密码" />
+              </div>
+              <button type="submit" class="btn-primary block">登录</button>
+            </form>
+            <div id="login-message" class="form-msg"></div>
+          </div>
+          <div id="register-form-tab" class="profile-form">
+            <form id="register-form">
+              <div class="form-group">
+                <label><i class="fa-regular fa-user"></i> 用户名</label>
+                <input type="text" name="username" required placeholder="取个好名字" />
+              </div>
+              <div class="form-group">
+                <label><i class="fa-solid fa-lock"></i> 密码</label>
+                <input type="password" name="password" required placeholder="至少 6 位" />
+              </div>
+              <button type="submit" class="btn-primary block">注册</button>
+            </form>
+            <div id="register-message" class="form-msg"></div>
+          </div>
+        </div>
+        <!-- 已登录 -->
+        <div id="profile-user-section" style="display:none">
+          <div class="profile-header-card">
+            <div class="profile-avatar-big" id="profile-avatar-text"></div>
+            <div class="profile-info">
+              <h2 id="profile-username"></h2>
+              <p id="profile-joined" class="hint"></p>
+            </div>
+            <button class="btn-outline" onclick="logout()">
+              <i class="fa-solid fa-right-from-bracket"></i> 退出
+            </button>
+          </div>
+          <div class="profile-tabs-mini">
+            <span class="mini-tab active" onclick="switchProfileDataTab('favorites-tab', this)">
+              <i class="fa-solid fa-heart"></i> 收藏
+            </span>
+            <span class="mini-tab" onclick="switchProfileDataTab('history-tab', this)">
+              <i class="fa-solid fa-clock-rotate-left"></i> 历史
+            </span>
+            <span class="mini-tab" onclick="switchProfileDataTab('my-recipes-tab', this)">
+              <i class="fa-solid fa-kitchen-set"></i> 我的菜谱
+            </span>
+          </div>
+          <div id="favorites-tab" class="profile-data active"></div>
+          <div id="history-tab" class="profile-data"></div>
+          <div id="my-recipes-tab" class="profile-data"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 页面: 添加菜谱 ========== -->
+    <div id="page-add" class="page">
+      <div class="section-header">
+        <h1 id="add-page-title"><i class="fa-solid fa-plus-circle"></i> 添加新菜谱</h1>
+        <p class="hint">填写以下信息，将你的拿手好菜分享给大家</p>
+      </div>
+      <div id="add-recipe-form-wrap" class="add-recipe-card">
+        <form id="add-recipe-form" onsubmit="return false;">
+          <!-- 基础信息 -->
+          <div class="form-row">
+            <div class="form-group" style="flex:2">
+              <label><i class="fa-solid fa-font"></i> 菜谱名称 *</label>
+              <input type="text" id="add-title" required placeholder="例如：麻婆豆腐" />
+            </div>
+            <div class="form-group" style="flex:1">
+              <label><i class="fa-regular fa-clock"></i> 烹饪时间（分钟）</label>
+              <input type="number" id="add-cooking-time" min="1" max="1440" placeholder="30" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label><i class="fa-solid fa-align-left"></i> 简介</label>
+            <textarea id="add-description" rows="2" placeholder="简单描述一下这道菜..."></textarea>
+          </div>
+          <!-- 分类下拉 -->
+          <div class="form-row">
+            <div class="form-group">
+              <label><i class="fa-solid fa-utensils"></i> 菜系</label>
+              <select id="add-cuisine"></select>
+            </div>
+            <div class="form-group">
+              <label><i class="fa-solid fa-leaf"></i> 季节</label>
+              <select id="add-season"></select>
+            </div>
+            <div class="form-group">
+              <label><i class="fa-solid fa-pepper-hot"></i> 口味</label>
+              <select id="add-taste"></select>
+            </div>
+            <div class="form-group">
+              <label><i class="fa-solid fa-signal"></i> 难度</label>
+              <select id="add-difficulty"></select>
+            </div>
+          </div>
+
+          <!-- 食材列表 -->
+          <div class="dynamic-section">
+            <div class="section-header-row">
+              <h3><i class="fa-solid fa-carrot"></i> 食材清单</h3>
+              <button type="button" class="btn-sm" onclick="addIngredientRow()">
+                <i class="fa-solid fa-plus"></i> 添加食材
+              </button>
+            </div>
+            <div id="ingredient-list" class="dynamic-list">
+              <div class="dynamic-row" data-idx="0">
+                <input type="text" class="ing-name" placeholder="食材名称" />
+                <input type="number" class="ing-qty" placeholder="用量" step="0.1" min="0" />
+                <input type="text" class="ing-unit" placeholder="单位" />
+                <input type="text" class="ing-notes" placeholder="备注（可选）" />
+                <button type="button" class="btn-remove" onclick="removeIngredientRow(this)" title="删除此行">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 步骤列表 -->
+          <div class="dynamic-section">
+            <div class="section-header-row">
+              <h3><i class="fa-solid fa-list-ol"></i> 烹饪步骤</h3>
+              <button type="button" class="btn-sm" onclick="addStepRow()">
+                <i class="fa-solid fa-plus"></i> 添加步骤
+              </button>
+            </div>
+            <div id="step-list" class="dynamic-list">
+              <div class="dynamic-row" data-idx="0">
+                <span class="step-idx-badge">1</span>
+                <input type="text" class="step-instruction" placeholder="步骤描述" />
+                <input type="number" class="step-duration" placeholder="耗时（秒）" />
+                <button type="button" class="btn-remove" onclick="removeStepRow(this)" title="删除此行">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 提交 -->
+          <div class="add-submit-row">
+            <button type="submit" id="add-submit-btn" class="btn-primary btn-lg" onclick="submitRecipe()">
+              <i class="fa-solid fa-cloud-upload-alt"></i> 提交菜谱
+            </button>
+            <div id="add-message" class="form-msg"></div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ========== 页面: 管理员后台 ========== -->
+    <div id="page-admin" class="page">
+      <div class="section-header">
+        <h1><i class="fa-solid fa-screwdriver-wrench"></i> 管理员后台</h1>
+        <p class="hint">root · 数据库管理面板</p>
+      </div>
+
+      <!-- 用户管理 -->
+      <div class="admin-section">
+        <div class="section-header-row">
+          <h2><i class="fa-solid fa-users"></i> 用户管理</h2>
+          <span class="hint" id="admin-user-count"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table" id="admin-user-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>用户名</th>
+                <th>注册时间</th>
+                <th>菜谱数</th>
+                <th>收藏数</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="admin-user-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 食材管理 -->
+      <div class="admin-section">
+        <div class="section-header-row">
+          <h2><i class="fa-solid fa-carrot"></i> 食材管理</h2>
+          <div class="admin-search-bar">
+            <input type="text" id="admin-ingredient-search" placeholder="搜索食材名称..." />
+            <button class="btn-sm" onclick="adminLoadIngredients()"><i class="fa-solid fa-search"></i></button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table" id="admin-ingredient-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>名称</th>
+                <th>分类</th>
+                <th>使用次数</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="admin-ingredient-tbody"></tbody>
+          </table>
+        </div>
+        <div class="admin-pagination" id="admin-ingredient-pagination"></div>
+      </div>
+
+      <!-- 菜谱管理 -->
+      <div class="admin-section">
+        <div class="section-header-row">
+          <h2><i class="fa-solid fa-book-open"></i> 菜谱管理</h2>
+          <div class="admin-search-bar">
+            <input type="text" id="admin-recipe-search" placeholder="搜索菜谱标题..." />
+            <button class="btn-sm" onclick="adminLoadRecipes()"><i class="fa-solid fa-search"></i></button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table" id="admin-recipe-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>标题</th>
+                <th>作者</th>
+                <th>菜系</th>
+                <th>难度</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="admin-recipe-tbody"></tbody>
+          </table>
+        </div>
+        <div class="admin-pagination" id="admin-recipe-pagination"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
